@@ -10,16 +10,19 @@ RUN yarn
 ENV NODE_ENV production
 RUN yarn build
 
+# Ensure STATIC_BUCKET is available as an ENV for S3 upload commands
 ARG STATIC_BUCKET
+ENV STATIC_BUCKET=${STATIC_BUCKET}
 
-#Update stretch repositories https://stackoverflow.com/questions/76094428/debian-stretch-repositories-404-not-found
+# Update stretch repositories
 RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list
 RUN sed -i 's|security.debian.org|archive.debian.org/|g' /etc/apt/sources.list
 RUN sed -i '/stretch-updates/d' /etc/apt/sources.list
 RUN apt-get update && apt-get install -y awscli
 
+# Use STATIC_BUCKET in your S3 upload commands
 RUN aws s3 cp /opt/app/.next/static s3://${STATIC_BUCKET}/static/_next/static --recursive --cache-control "private, max-age=31536000" \
-  &&  aws s3 cp /opt/app/public s3://${STATIC_BUCKET}/static --recursive --cache-control "private, max-age=31536000"
+  && aws s3 cp /opt/app/public s3://${STATIC_BUCKET}/static --recursive --cache-control "private, max-age=31536000"
 
 FROM node:14
 
