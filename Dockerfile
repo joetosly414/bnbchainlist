@@ -5,9 +5,11 @@ ENV COMMIT_SHA=$COMMIT_SHA
 
 WORKDIR /opt/app
 
+COPY package.json yarn.lock ./
+ENV NODE_ENV=production
+RUN yarn install --frozen-lockfile
+
 COPY . .
-RUN yarn
-ENV NODE_ENV production
 RUN yarn build
 
 FROM node:20-bookworm-slim
