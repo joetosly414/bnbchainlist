@@ -13,6 +13,7 @@ WORKDIR /opt/app
 COPY --from=deps /opt/app/node_modules ./node_modules
 COPY . .
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN yarn build
 
 ARG STATIC_BUCKET=""
@@ -26,7 +27,14 @@ RUN if [ -n "${STATIC_BUCKET}" ]; then \
 
 FROM node:14 AS runner
 
+ARG APP_PORT=3000
 WORKDIR /opt/app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    HOSTNAME=0.0.0.0 \
+    PORT=${APP_PORT}
+
 RUN groupadd --system app && useradd --system --gid app --create-home --home-dir /home/app app \
     && mkdir -p /mnt/efs \
     && chown -R app:app /opt/app /mnt/efs
@@ -40,11 +48,9 @@ COPY --from=builder /opt/app/public/connectors ./public/connectors
 
 USER app
 
-EXPOSE 3000
-ENV NODE_ENV=production
-ENV PORT=3000
+EXPOSE ${APP_PORT}
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "require('http').get('http://127.0.0.1:' + (process.env.PORT || 3000), (res) => { process.exit(res.statusCode < 500 ? 0 : 1); }).on('error', () => process.exit(1));"
+  CMD node -e "const http = require('http'); const port = process.env.PORT || 3000; const req = http.get({ host: '127.0.0.1', port, path: '/' }, (res) => process.exit(res.statusCode < 500 ? 0 : 1)); req.on('error', () => process.exit(1));"
 
-CMD ["yarn", "start"]
+CMD ["sh", "-lc", "next start -H ${HOSTNAME:-0.0.0.0} -p ${PORT:-3000}"]
